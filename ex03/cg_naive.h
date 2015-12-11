@@ -17,79 +17,59 @@ class CG{
         }
 
         ~CG(){}   
-    public:
+    private:
 
 	void matrix_multiplication(double r[],double u[]){
 	  for(int i=1;i<ny_-1;++i)
                 for(int j=1;j<nx_-1;++j)
-                    r[i*nx_+j] = mst*u[i*nx_+j] - xst*(u[i*nx_+j+1]+u[i*nx_+j-1])-yst*(u[j+(i+1)*nx_]+u[j+(i-1)*nx_]);              
-                     
-      
+                    r[i*nx_+j] = mst*u[i*nx_+j] - xst*(u[i*nx_+j+1]+u[i*nx_+j-1])-yst*(u[j+(i+1)*nx_]+u[j+(i-1)*nx_]);   
 	}
-	void vector_multiplication(double r[],double a[],double b[]){
+	
+
+	void vector_addition(double r[],double a[],double b[],double scalar){
 	    for(int i=1;i<ny_-1;++i)
                 for(int j=1;j<nx_-1;++j)
-						r[i*nx_+j]=a[i*nx_+j]*b[i*nx_+j];
+			           r[i*nx_+j]=a[i*nx_+j]+b[i*nx_+j]*scalar;
 	}
-	void vector_addition(double r[],double a[],double b[]){
+	
+	void vector_subtraction(double r[],double a[],double b[],double scalar){
 	    for(int i=1;i<ny_-1;++i)
                 for(int j=1;j<nx_-1;++j)
-			           r[i*nx_+j]=a[i*nx_+j]+b[i*nx_+j];
+			          r[i*nx_+j]=a[i*nx_+j]-b[i*nx_+j]*scalar;
 	}
-	double vector_addition_scalar(double a[],double b[]){
+	
+	double LNorm(double a[],double b[]){
 		double rs=0;
 	    for(int i=1;i<ny_-1;++i)
                 for(int j=1;j<nx_-1;++j)
 			         rs+=a[i*nx_+j]*b[i*nx_+j];
 		return rs;
 	}
-	void vector_subtraction(double r[],double a[],double b[]){
-	    for(int i=1;i<ny_-1;++i)
-                for(int j=1;j<nx_-1;++j)
-			          r[i*nx_+j]=a[i*nx_+j]-b[i*nx_+j];
-	}
-	void vector_scalar(double r[],double a[],double b){
-	    for(int i=1;i<ny_-1;++i)
-                for(int j=1;j<nx_-1;++j)
-			         r[i*nx_+j]=a[i*nx_+j]*b;
-	}
-	double rezidual(double r[]){
-		double rs=0;
-	    for(int i=1;i<ny_-1;++i)
-                for(int j=1;j<nx_-1;++j)
-			        rs+=r[i*nx_+j]*r[i*nx_+j];
-		return sqrt(rs);
-	}
-      
+	
+    public:  
     double solve_naive(){
        initialization_naive();
-//view(u);   
-       //TODO OpenMP.    
-        //std::cout<<eps_<<'\n';
+  
+     
 		matrix_multiplication(z,u);
-		vector_subtraction(d,f,z);		
-		delta0 = vector_addition_scalar(d,d);
-		view(d);
-		return 0;
-		if(sqrt(delta0)<=eps_)return sqrt(delta0);
-       for(int it=0;it<c_;++it){//nr iterations
-           matrix_multiplication(z,d);
-		   alfa= delta0/vector_addition_scalar(d,z);
-		   vector_scalar(alfad,d,alfa);
-		   vector_scalar(alfaz,z,alfa);
-		   vector_addition(u,u,alfad);
-		   vector_subtraction(r,r,alfaz);
-           delta1 = vector_addition_scalar(r,r);
-		   if(sqrt(delta1)<=eps_)break;//return sqrt(delta1);
-		   beta = delta1/delta0;
-		   vector_scalar(betad,d,beta);
-		   vector_addition(d,r,betad);
-		   //std::cout<<" lol "<<vector_addition_scalar(r,betad)<<"---\n"; return 0;
-		   delta0=delta1;     
-		   if(it%20==0)std::cout<<delta1<<" -\n";
-       }
+		vector_subtraction(d,f,z,1);		
+		vector_subtraction(r,f,z,1);
+		delta0 = LNorm(d,d);
+		if(sqrt(delta0)>eps_)
+		   for(int it=0;it<c_;++it){//nr iterations
+			   matrix_multiplication(z,d);
+			   alfa= delta0/LNorm(d,z);
+			   vector_addition(u,u,d,alfa);
+			   vector_subtraction(r,r,z,alfa);
+			   delta1 = LNorm(r,r);			   
+			   beta = delta1/delta0;
+			   delta0=delta1; 
+			   if(sqrt(delta1)<=eps_)break;
+			   vector_addition(d,r,d,beta);		   
+			   //if(it%20==0||1)std::cout<<delta1<<" -\n";
+		   }
         //view(u);
-       return  sqrt(delta1);;
+       return  sqrt(delta0);
     }
     private:
     //grid points for right to left, bottom to top
@@ -99,10 +79,7 @@ class CG{
        u = new double[pg];    
        r = new double[pg];    
        d = new double[pg]; 		   
-       z = new double[pg]; 	      
-       alfad = new double[pg];    
-       alfaz = new double[pg]; 		   
-       betad = new double[pg]; 	
+       z = new double[pg]; 	    
         //TODO OpenMP.
        double C = 4*pi*pi;   
        double freqx = 2*pi*hx_;   
@@ -116,14 +93,10 @@ class CG{
 		   r[j+i*nx_]=0;
 		   d[j+i*nx_]=0;
 		   z[j+i*nx_]=0;
-		   alfad[j+i*nx_]=0;
-		   alfaz[j+i*nx_]=0;
-		   betad[j+i*nx_]=0;
         }       
         
        int last_row = (ny_-1)*nx_;  
        double SINH = sinh(2*pi);  
-     //  double CSINH = C*SINH;   
        for(int i=0;i<nx_;++i){           
            u[last_row+i] = sin(i*freqx) * SINH;//sin(2πx) sinh(2πy)
        }
@@ -159,7 +132,7 @@ class CG{
             //we make nx_ even
             bool even;
             //optimize implemantation: red point, black points
-            double * u ,*f , *alfad, *alfaz, *betad, *r, *z, *d, beta,alfa, delta0, delta1,eps_;
+            double * u ,*f , *r, *z, *d, beta,alfa, delta0, delta1,eps_;
             //delta x, delta y, left and right points stencil, top and bottom point stencil, middle point stencil
             double hx_,hy_, xst, yst, mst;
             //nr of iteration, nr of grid points x ax, nr of grid points y ax, #points grid, # threads

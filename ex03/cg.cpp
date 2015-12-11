@@ -3,6 +3,10 @@
 #include<iostream>
 #include <stdlib.h>
 
+
+#include"Vector.h"  //Expr_CG function
+#include "cg_naive.h" //CG class
+
 #include "CG.h"
 #include "Timer.h"
 
@@ -21,22 +25,27 @@ int main(int argc, char *argv[]){
     int nx   = atoi(argv[1]);
     int ny   = atoi(argv[2]);
     int c    = atoi(argv[3]);	
-    int eps  = atoi(argv[4]);
+    int eps  = stod(argv[4]);
     
 #ifdef USE_LIKWID
    likwid_markerInit();
-   likwid_markerStartRegion( "RBGS" );
+   likwid_markerStartRegion( "CG" );
 #endif
 
-    RBGS fast(nx,ny,c);
+   
     siwir::Timer timer;
     
-    double  r = fast.solve();
+    //using simple function operation on vectors
+    CG fast(nx,ny,c,eps);
+    double  r = fast.solve_naive();
+	
+	//using template expretions
+    //double r = Expr_CG(nx,ny,c,eps);
     
     double time = timer.elapsed();
 
 #ifdef USE_LIKWID
-   likwid_markerStopRegion( "RBGS" );
+   likwid_markerStopRegion( "CG" );
    likwid_markerClose();
 #endif
 

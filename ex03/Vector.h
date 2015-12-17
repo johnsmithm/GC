@@ -37,11 +37,17 @@ public:
 	size_t nxs,nys;//total points
 	size_t n;
 	size_t x,y;//first  point for f initialization
-	MPI_Datatype columntype;   	   
+	double hx,hy;//for print
+	size_t offsetx,offsety;
+	MPI_Datatype columntype; 
+	MPI_Datatype printtype;
 public :
 	void commit_datatypes(){
-	   MPI_Type_vector( ny, 1, nys, MPI_DOUBLE, &columntype );
+	   MPI_Type_vector( nyi, 1, nxs, MPI_DOUBLE, &columntype );
 	   MPI_Type_commit( &columntype );
+	
+	   MPI_Type_vector( ny, nx, nxs, MPI_DOUBLE, &printtype );
+	   MPI_Type_commit( &printtype );	 
 	}
 	/*Vector(int n_,double w = 0):n(n_){
 	   nx=ny=0;	
@@ -61,6 +67,7 @@ public :
 		 :n(n_),x(x_),y(y_),nx(nx_),ny(ny_),nxs(nxs_),nys(nys_),nxi(nxi_),nyi(nyi_)
 	{	
 	  data = new double[n];	 
+	  for(int i=0;i<n;++i)data[i]=0;		 
 	  for(size_t i=0;i<ny;++i)
 		      for(size_t j=0;j<nx;++j)
 			    data[j+x+nxs*(i+y)] = f(j+offsetx,i+offsety);
@@ -78,7 +85,11 @@ public :
 		  commit_datatypes();
 	}//end Vector Constructors
     //Vector(Vector&& o) noexcept : data(std::move(o.data)) {std::cout<<'|';}
-	~Vector(){delete [] data; MPI_Type_free( &columntype );}
+	~Vector(){
+		delete [] data;
+		MPI_Type_free( &columntype );
+		MPI_Type_free( &printtype );
+	}
 	
 	//vector operators
 	double operator[] (int i)const{
@@ -93,8 +104,8 @@ public :
 	void operator = (const Expr<A>& a_){
 	const A& a(a_);
 		
-		for(int i=0;i<nyi;++i)
-			for(int j=0;j<nxi;++j)
+		for(size_t i=0;i<nyi;++i)
+			for(size_t j=0;j<nxi;++j)
 		{
 		data[j+1+nxs*(1+i)] = a[(1+i)*nxs+j+1];
 		}
@@ -104,7 +115,7 @@ public :
 	//:n(a.n),x(a.x),y(a.y),nx(a.nx),ny(a.ny),nxs(a.nxs),nys(a.nys)
 	{
 		n=a.n;x=a.x;y=a.y;nx=a.nx;ny=a.ny;nxs=a.nxs;nys=a.nys;
-			for(int i=0;i<n;++i){
+			for(size_t i=0;i<n;++i){
 			data[i] = a[i];
 			}
 	}
@@ -114,14 +125,16 @@ public :
 	{//move constructor
 		   // std::cout<<"-";
 		    n=a.n;x=a.x;y=a.y;nx=a.nx;ny=a.ny;nxs=a.nxs;nys=a.nys;
+		    nxi=a.nxi;nyi=a.nyi;
+		    offsetx=a.offsetx;offsety=a.offsety;
 			data = a.data;
 			a.data = NULL;
 	}
 	
 	double operator^(const Vector & a)const{
 		double l = 0;		
-		for(int i=0;i<nyi;++i)
-			for(int j=0;j<nxi;++j)			
+		for(size_t i=0;i<nyi;++i)
+			for(size_t j=0;j<nxi;++j)			
 			      l+=data[(1+i)*nxs+j+1]*a.data[(1+i)*nxs+j+1];
 		double l1;		
 	    MPI_Allreduce( &l, &l1 ,1 , MPI_DOUBLE ,MPI_SUM, cartcomm );
@@ -131,33 +144,47 @@ public :
 	//brgin vector members
 	double LNorm(){
 		double l = 0;		
-		for(int i=0;i<nyi;++i)
-			for(int j=0;j<nxi;++j)
+		for(size_t i=0;i<nyi;++i)
+			for(size_t j=0;j<nxi;++j)
 			    l+=data[(1+i)*nxs+j+1]*data[j+1+nxs*(i+1)];
 		double l1;		
 	    MPI_Allreduce( &l, &l1 ,1 , MPI_DOUBLE ,MPI_SUM, cartcomm );	
 		return l1;
 	}	
 	
+	void get_info(int rank){
+	               MPI_Status status;
+				   MPI_Recv( &data[nxs+x], 1, printtype, rank, 10, cartcomm, &status );
+	}
+	void sent_info(int rank){
+	               MPI_Send( &data[nxs+x],    1, printtype, 0, 10, cartcomm );
+	}
+	
 	//template <>
 	//friend Add<Stencil,Vector>::Add(Stencil,Vector);
+	void  set_distace(double const x,double const y){hx=x;hy=y; }
+	void  set_offset(int const x,int const y)       {offsetx=x;offsety=y; }
 	
     size_t size()const{return n;}
-	size_t nx_()const{return nx;}
-	size_t ny_()const{return ny;}
+	size_t offsetx_()const{return offsetx;}
+	size_t offsety_()const{return offsety;}
+	double hx_() const{return hx;}
+	double hy_() const{return hy;}
+	size_t nx_() const{return nx;}
+	size_t ny_() const{return ny;}
 	size_t nxi_()const{return nxi;}
 	size_t nyi_()const{return nyi;}
 	size_t nxs_()const{return nxs;}
 	size_t nys_()const{return nys;}
-	size_t x_()const{return x;}
-	size_t y_()const{return y;}
+	size_t x_()  const{return x;}
+	size_t y_()  const{return y;}
 	//end vector members
 };
 
 //vector print operators
 std::ostream & operator<<( std::ostream & os, const Vector & v )
 {
-	if(v.nxs_()!=0){
+
 	 for( size_t i=0; i < v.nys_(); ++i )
 		{
 			for( size_t j=0; j < v.nxs_(); ++j )
@@ -166,35 +193,29 @@ std::ostream & operator<<( std::ostream & os, const Vector & v )
 			}  
 		    os<<"\n";
 		}
-	}else
-    for( size_t i=0; i < v.size(); ++i )
-    {
-        os << v[i] << " ";        
-    }
+	
 	os<<"\n";
     return os;
 }
 
 std::ostream & operator&( std::ostream & os, const Vector & v )
 {
-	if(v.nx_()!=0){
-	 for( size_t i=0; i < v.nyi_(); ++i )
+	
+	 for( size_t i=0; i < v.ny_(); ++i )
 		{
-			for( size_t j=0; j < v.nxi_(); ++j )
-			{
-				os<<i<<' '<<j<<' ' << v[(1+i)*v.nxs_()+j+1] << "\n";        
+			for( size_t j=0; j < v.nx_(); ++j )
+			{  // os<<j<<" "<<i<<" ";
+				os<<(j+v.offsetx_())*v.hx_()<<' '<<(i+v.offsety_())*v.hy_()<<' ' << v[(v.y_()+i)*v.nxs_()+j+v.x_()] << "\n";        
 			}  
 		    //MPI_Barrier( cartcomm );//??
 		    //os<<"\n";
 		}
-	}else
-    for( size_t i=0; i < v.size(); ++i )
-    {
-        os << v[i] << " ";        
-    }
+	
 	os<<"\n";
     return os;
 }//vector end
+
+
 
 class Stencil : public Expr<Stencil > {
 
@@ -339,6 +360,55 @@ template <class A>
 	}
 //operation end
 
+Vector * get_vector(int rank,int nx,int ny,int px = 2,int py = 2){
+	    
+	    int coords[2] = {0,0};
+        MPI_Cart_coords(cartcomm, rank, 2, coords);
+	    std::swap(coords[0],coords[1]);
+	
+	    int nx_ = (nx+1)/px , ny_ = (ny+1)/py; //inner point in each block for f
+		int nxi = nx_, nyi = ny_;//inner point for stencil calculation
+		int nxs = nx_ , nys = ny_;//total size of a block
+		int x=0,y=0; //first inner point coordonates
+		int offsetx=coords[1]*nx_, offsety =coords[0]*ny_;
+	
+
+		if(coords[0]==0 || coords[0]==py-1){//if we are last or first row
+			if(coords[0]==py-1)
+				ny_ += (ny+1)%py; // add the remaining rows
+			nys = ny_+1;
+		}else nys +=2; //add the layers
+
+		if(coords[1]==0 || coords[1]==px-1){//if we are last or first column
+			if(coords[1]==px-1)
+				nx_ += (nx+1)%px; // add the remaining columns
+			nxs = nx_+1;
+		}else nxs +=2; //add the layers
+
+
+		if(coords[0]==0 && coords[1]==0){//first point
+			x=0;y=0;		
+		}else if(coords[0]==0){//first column
+		   x=1;y=0;
+		}else if(coords[1]==0)//first row
+		{
+		x=0; y=1;
+		}else{
+			x=1;y=1;
+		}//others
+
+		nxi = nx_;nyi = ny_;
+		if(coords[0]==0 || coords[0]==py-1){//first row or last row
+			--nyi;		
+		}
+		if(coords[1]==0 || coords[1]==px-1){//first column
+			--nxi;
+		}
+        int pg = nxs*nys;
+		Vector * r = new Vector(pg,nx_,ny_,nxi,nyi,nxs,nys,x,y);	
+		r->set_offset(offsetx,offsety);
+		return r;
+}
 
 
 double Expr_CG(int nx,int ny,int c,double eps){
@@ -365,7 +435,7 @@ double Expr_CG(int nx,int ny,int c,double eps){
 	int nxi = nx_, nyi = ny_;//inner point for stencil calculation
 	int nxs = nx_ , nys = ny_;//total size of a block
 	int x=0,y=0; //first inner point coordonates
-	int offsetx=coords[0]*nx_, offsety =coords[1]*ny_;
+	int offsetx=coords[1]*nx_, offsety =coords[0]*ny_;
 	
 	if(coords[0]==0 || coords[0]==py-1){//if we are last or first row
 	    if(coords[0]==py-1)
@@ -422,8 +492,14 @@ double Expr_CG(int nx,int ny,int c,double eps){
 			 [C,freqx,freqy](int x,int y)->double{return C*sin(freqx*x)*sinh(freqy*y);});	//set freq
 			int last_row = nxs*(nys-1);	
 			double SINH = sinh(2*pi); 
-	//sin(2πx) sinh(2πy)		
-	Vector u(pg,nx_,ny_,nxi,nyi,nxs,nys,x,y,offsetx, [SINH,freqx](int x)->double{return sin(x*freqx) * SINH;});
+	
+	//sin(2πx) sinh(2πy)
+	Vector *ut;
+	if(coords[0]==py-1)
+	     ut= new Vector(pg,nx_,ny_,nxi,nyi,nxs,nys,x,y,offsetx, [SINH,freqx](int x)->double{return sin(x*freqx) * SINH;});
+	else ut = new Vector(pg,nx_,ny_,nxi,nyi,nxs,nys,x,y);
+	Vector u(pg,nx_,ny_,nxi,nyi,nxs,nys,x,y);
+	u = *ut;
 	
 	Stencil A(nx,ny,nbrs);
 	double delta0 = 0, delta1 = 0, beta = 0,alfa=0 ,scalar =0;
@@ -431,29 +507,10 @@ double Expr_CG(int nx,int ny,int c,double eps){
 	//initialization
 	
 	
-	for( int i = 0; i < 4; ++i )
-      {
-         if( cartrank == i )
-         {
 
-            std::cout<<f << "------------------------------------------------------------\n"
-			          << "rank (Cartesian topology):         " << cartrank << "\n"
-                      << "Cartesian coordinates:             ( " << coords[0] << ", " << coords[1] << " )\n" 
-		              << "neighbors (x-direction, expected): " << nbrs[LEFT] << " (left), " << nbrs[RIGHT] << " (right)\n"
-                      << "neighbors (y-direction, expected): " << nbrs[DOWN] << " (down), " << nbrs[UP] << " (up)\n"   
-				      << "nx="<<nx_<<" ny="<<ny_<<"\n"
-				      << "nxs="<<nxs<<" nys="<<nys<<"\n"
-				      << "nxi="<<nxi<<" nyi="<<nyi<<"\n"					      
-				      << "x="<<x<<" y="<<y<<"\n"
-                      << std::endl;
-         }
-         MPI_Barrier( MPI_COMM_WORLD );
-      }
-	
 	
 	//CG
 	r = f - A*u;
-	//std::cout<<(A*u);//u<<(A*u);
 	delta0 = r.LNorm();
 	d = r;
 	if(sqrt(delta0)>eps)
@@ -469,45 +526,54 @@ double Expr_CG(int nx,int ny,int c,double eps){
 		  if(sqrt(delta1)<eps)break;		  
 		  d = r + d*beta;		  
 	  }
-	//std::cout<<u;
-	//return sqrt(delta0);	
+	
+		/*for( int i = 0; i < px*py; ++i )
+      {
+         if( cartrank == i )
+         {
+
+            std::cout<<u << "------------------------------------------------------------\n"
+			          << "rank (Cartesian topology):         " << cartrank << "\n"
+                      << "Cartesian coordinates:             ( " << coords[0] << ", " << coords[1] << " )\n" 
+		              << "neighbors (x-direction, expected): " << nbrs[LEFT] << " (left), " << nbrs[RIGHT] << " (right)\n"
+                      << "neighbors (y-direction, expected): " << nbrs[DOWN] << " (down), " << nbrs[UP] << " (up)\n"   
+				      << "nx="<<nx_<<" ny="<<ny_<<"\n"
+				      << "nxs="<<nxs<<" nys="<<nys<<"\n"
+				      << "nxi="<<nxi<<" nyi="<<nyi<<"\n"					      
+				      << "x="<<x<<" y="<<y<<"\n"
+                      << std::endl;
+         }
+         MPI_Barrier( MPI_COMM_WORLD );
+      }*/
+	
 	
 	std::ofstream out("solution.txt");
-	//todo all sent to 0 proccess
-	//out&u;//naive print
-	
-	//advanced print
-	int a=1;
-	MPI_Status status;	
-	if(0)
-	if(coords[0]==0 && coords[1]==0){//first block
-		
-	    out&u;
-		a=nbrs[DOWN];
-		MPI_Send( &a, 1, MPI_INT, nbrs[RIGHT], 10, cartcomm );
-	}else if(coords[0]==py-1 && coords[1]==px-1){//last block
-	   
-		MPI_Recv( &a, 1, MPI_INT, nbrs[LEFT], 10, cartcomm, &status );
-	   out&u;
-	}else if(coords[1]==px-1){//last block in row
-		
-		MPI_Recv( &a, 1, MPI_INT, nbrs[LEFT], 10, cartcomm, &status );
-	    out&u;
-		MPI_Send( &a, 1, MPI_INT, a, 10, cartcomm );
-	}else if(coords[1] == 0){//first block in row
-		int last;
-		int lastcoords[2] = {coords[0]-1,py-1};
-		MPI_Cart_rank(cartcomm,lastcoords,&last);
-	    MPI_Recv( &a, 1, MPI_INT, last, 10, cartcomm, &status );
-	    out&u;
-		a=nbrs[DOWN];
-		MPI_Send( &a, 1, MPI_INT, nbrs[RIGHT], 10, cartcomm );
-	}else{//inner block
-		
-	    MPI_Recv( &a, 1, MPI_INT, nbrs[LEFT], 10, cartcomm, &status );
-	    out&u;
-		MPI_Send( &a, 1, MPI_INT, nbrs[RIGHT], 10, cartcomm );
-	}
+	for( int i = 0; i < px*py; ++i )
+		  {
+			 if( cartrank == 0 )
+			 {
+				if( i == 0 )
+				{
+				   u.set_distace(hx_,hy_);
+				   u.set_offset(offsetx,offsety);	
+				   out&u;
+				}
+				else
+				{
+				   //out<<i<<'\n';	
+				   Vector * pr = get_vector(i,nx,ny,px,py);	
+				   pr->get_info(i);	
+				   pr->set_distace(hx_,hy_);		
+				   out&(*pr);	
+				  
+					
+				}
+			 }
+			 else if( cartrank == i )
+			 {
+				   u.sent_info(i);	
+			 }
+		  }
 	
 	return sqrt(delta0);	
 }

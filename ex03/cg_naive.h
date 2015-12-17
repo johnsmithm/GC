@@ -49,9 +49,10 @@ class CG{
     public:  
     double solve_naive(){
        initialization_naive();
-  
+      
      
 		matrix_multiplication(z,u);
+		// view(f);
 		vector_subtraction(d,f,z,1);		
 		vector_subtraction(r,f,z,1);
 		delta0 = LNorm(d,d);

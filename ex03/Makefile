@@ -1,8 +1,8 @@
-CXX = g++
-CXXFLAGS = -std=c++11 -Wall -Wextra -Wshadow -Werror -fopenmp -O3 -DNDEBUG -ftree-vectorizer-verbose=1 -ffast-math -march=native
+CXX = mpic++
+CXXFLAGS =  -std=c++11 -Wall -Wextra -Wshadow -Werror -fopenmp -O3 -DNDEBUG -ftree-vectorizer-verbose=1 -ffast-math -march=native
 
-TARGET =rbgs
-HXX=RBGS.h Timer.h
+TARGET =cg
+HXX=Vector.h Timer.h 
 
 OBJS = $(TARGET).o
 

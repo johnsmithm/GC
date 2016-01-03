@@ -5,6 +5,7 @@
 #include <fstream>
 #include <math.h>
 #include <functional>
+#include <mpi.h>
 
 const int UP    = 0;
 const int DOWN  = 1;
@@ -32,11 +33,11 @@ template <>
 class Vector : public Expr<Vector > {
 public:
 	double *data;
+	size_t n;
 	size_t nx,ny;//inner points for f
 	size_t nxi,nyi;//inner points 
 	size_t nxs,nys;//total points
-	size_t n;
-	size_t x,y;//first  point for f initialization
+	size_t X,Y;//first  point for f initialization
 	double hx,hy;//for print
 	size_t offsetx,offsety;
 	MPI_Datatype columntype; 
@@ -56,32 +57,33 @@ public :
 	}*/
 	
 	Vector(int n_,int nx_,int ny_,int nxi_,int nyi_,int nxs_,int nys_,int x_,int y_, double w = 0)//d,r,z
-		:n(n_),x(x_),y(y_),nx(nx_),ny(ny_),nxs(nxs_),nys(nys_),nxi(nxi_),nyi(nyi_){	  	   		
+		:n(n_),nx(nx_),ny(ny_),nxi(nxi_),nyi(nyi_),nxs(nxs_),nys(nys_),X(x_),Y(y_){	  	   		
        data = new double[n];
-	   for(int i=0;i<n;++i)data[i]=w;
+	   for(size_t i=0;i<n;++i)data[i]=w;
 	   commit_datatypes();		
 	}	
 	
 	 Vector(int n_,int nx_,int ny_,int nxi_,int nyi_,int nxs_,int nys_,int x_,int y_,
-			size_t offsetx,size_t offsety,std::function<double(size_t,size_t)> f) //f
-		 :n(n_),x(x_),y(y_),nx(nx_),ny(ny_),nxs(nxs_),nys(nys_),nxi(nxi_),nyi(nyi_)
+			size_t offsetx_,size_t offsety_,std::function<double(size_t,size_t)> f) //f
+		:n(n_),nx(nx_),ny(ny_),nxi(nxi_),nyi(nyi_),nxs(nxs_),nys(nys_),X(x_),Y(y_){	  	   		
 	{	
 	  data = new double[n];	 
-	  for(int i=0;i<n;++i)data[i]=0;		 
+	  for(size_t i=0;i<n;++i)data[i]=0;		 
 	  for(size_t i=0;i<ny;++i)
 		      for(size_t j=0;j<nx;++j)
-			    data[j+x+nxs*(i+y)] = f(j+offsetx,i+offsety);
+			    data[j+X+nxs*(i+Y)] = f(j+offsetx_,i+offsety_);
 	  commit_datatypes();	  
 	}
+        }
 	
-	    Vector(int n_,int nx_,int ny_,int nxi_,int nyi_,int nxs_,int nys_,int x_,int y_,size_t offsetx, std::function<double(size_t)> f)//u
-			:n(n_),x(x_),y(y_),nx(nx_),ny(ny_),nxs(nxs_),nys(nys_),nxi(nxi_),nyi(nyi_)
+	    Vector(int n_,int nx_,int ny_,int nxi_,int nyi_,int nxs_,int nys_,int x_,int y_,size_t offsetx_, std::function<double(size_t)> f)//u
+			:n(n_),nx(nx_),ny(ny_),nxi(nxi_),nyi(nyi_),nxs(nxs_),nys(nys_),X(x_),Y(y_)
 	{   	
 	      data = new double[n];	
-	      for(int i=0;i<n;++i)data[i]=0;	
+	      for(size_t i=0;i<n;++i)data[i]=0;	
 				
 	      for(size_t i=0;i<nx;++i)
-			  data[nxs*(nys-1)+x+i] = f(i+offsetx);
+			  data[nxs*(nys-1)+x_+i] = f(i+offsetx_);
 		  commit_datatypes();
 	}//end Vector Constructors
     //Vector(Vector&& o) noexcept : data(std::move(o.data)) {std::cout<<'|';}
@@ -114,7 +116,7 @@ public :
 	void operator = (const Vector& a)
 	//:n(a.n),x(a.x),y(a.y),nx(a.nx),ny(a.ny),nxs(a.nxs),nys(a.nys)
 	{
-		n=a.n;x=a.x;y=a.y;nx=a.nx;ny=a.ny;nxs=a.nxs;nys=a.nys;
+		n=a.n;X=a.X;Y=a.Y;nx=a.nx;ny=a.ny;nxs=a.nxs;nys=a.nys;
 			for(size_t i=0;i<n;++i){
 			data[i] = a[i];
 			}
@@ -124,7 +126,7 @@ public :
 	//:n(a.n),x(a.x),y(a.y),nx(a.nx),ny(a.ny),nxs(a.nxs),nys(a.nys)
 	{//move constructor
 		   // std::cout<<"-";
-		    n=a.n;x=a.x;y=a.y;nx=a.nx;ny=a.ny;nxs=a.nxs;nys=a.nys;
+		    n=a.n;X=a.X;Y=a.Y;nx=a.nx;ny=a.ny;nxs=a.nxs;nys=a.nys;
 		    nxi=a.nxi;nyi=a.nyi;
 		    offsetx=a.offsetx;offsety=a.offsety;
 			data = a.data;
@@ -154,11 +156,11 @@ public :
 	
 	void get_info(int rank){
 	               MPI_Status status;
-				   MPI_Recv( &data[nxs+x], 1, printtype, rank, 10, cartcomm, &status );
+				   MPI_Recv( &data[nxs+X], 1, printtype, rank, 10, cartcomm, &status );
 	}
-	void sent_info(int rank){
-	               MPI_Send( &data[nxs+x],    1, printtype, 0, 10, cartcomm );
-	}
+    void sent_info(){
+                   MPI_Send( &data[nxs+X],    1, printtype, 0, 10, cartcomm );
+    }
 	
 	//template <>
 	//friend Add<Stencil,Vector>::Add(Stencil,Vector);
@@ -176,8 +178,8 @@ public :
 	size_t nyi_()const{return nyi;}
 	size_t nxs_()const{return nxs;}
 	size_t nys_()const{return nys;}
-	size_t x_()  const{return x;}
-	size_t y_()  const{return y;}
+	size_t x_()  const{return X;}
+	size_t y_()  const{return Y;}
 	//end vector members
 };
 
@@ -489,21 +491,20 @@ double Expr_CG(int nx,int ny,int c,double eps){
 	double freqy = 2*pi*hy_;     
 	//4π^2 sin(2πx) sinh(2πy)
 	Vector f(pg,nx_,ny_,nxi,nyi,nxs,nys,x,y,offsetx,offsety,
-			 [C,freqx,freqy](int x,int y)->double{return C*sin(freqx*x)*sinh(freqy*y);});	//set freq
-			int last_row = nxs*(nys-1);	
+			 [C,freqx,freqy](int x_,int y_)->double{return C*sin(freqx*x_)*sinh(freqy*y_);});	//set freq
+			//int last_row = nxs*(nys-1);	
 			double SINH = sinh(2*pi); 
 	
 	//sin(2πx) sinh(2πy)
 	Vector *ut;
 	if(coords[0]==py-1)
-	     ut= new Vector(pg,nx_,ny_,nxi,nyi,nxs,nys,x,y,offsetx, [SINH,freqx](int x)->double{return sin(x*freqx) * SINH;});
+	     ut= new Vector(pg,nx_,ny_,nxi,nyi,nxs,nys,x,y,offsetx, [SINH,freqx](int x_)->double{return sin(x_*freqx) * SINH;});
 	else ut = new Vector(pg,nx_,ny_,nxi,nyi,nxs,nys,x,y);
 	Vector u(pg,nx_,ny_,nxi,nyi,nxs,nys,x,y);
 	u = *ut;
 	
 	Stencil A(nx,ny,nbrs);
 	double delta0 = 0, delta1 = 0, beta = 0,alfa=0 ,scalar =0;
-	double mydelta0 = 0, mydelta1 = 0,  myscalar = 0;
 	//initialization
 	
 	
@@ -571,7 +572,7 @@ double Expr_CG(int nx,int ny,int c,double eps){
 			 }
 			 else if( cartrank == i )
 			 {
-				   u.sent_info(i);	
+				   u.sent_info();	
 			 }
 		  }
 	

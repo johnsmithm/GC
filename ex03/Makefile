@@ -1,5 +1,5 @@
 CXX = mpic++
-CXXFLAGS =  -std=c++11 -Wall -Wextra -Wshadow -Werror -fopenmp -O3 -DNDEBUG -ftree-vectorizer-verbose=1 -ffast-math -march=native
+CXXFLAGS =  -std=c++11 -Wall -Wextra  -Werror -fopenmp -O3 -DNDEBUG -ftree-vectorizer-verbose=1 -ffast-math -march=native -g
 
 TARGET =cg
 HXX=Vector.h Timer.h 

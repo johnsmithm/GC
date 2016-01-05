@@ -6,8 +6,11 @@
 #include <string>
 #include <mpi.h>
 
+#include <cstdio>
+#include <unistd.h>
+
 #include"Vector.h"  //Expr_CG function
-#include "cg_naive.h" //CG class
+//#include "cg_naive.h" //CG class
 
 using namespace std;
 
@@ -22,6 +25,14 @@ int main(int argc, char *argv[]){
 	
 	MPI_Comm_size( MPI_COMM_WORLD, &size );
     MPI_Comm_rank( MPI_COMM_WORLD, &rank );
+    /*
+    int i = 0;
+    char hostname[256];
+    gethostname(hostname, sizeof(hostname));
+    printf("PID %d on %s ready for attach\n", getpid(), hostname);
+    fflush(stdout);
+    while (0 == i)
+        sleep(5);*/
 	
     assert(argc>3);
     int nx = atoi(argv[1]);
@@ -38,7 +49,7 @@ int main(int argc, char *argv[]){
     //double  r = fast.solve_naive();
 	
 	//using template expretions
-    double r = Expr_CG(nx,ny,c,eps);
+    double r = Expr_CG(nx,ny,c,eps,rank,size);
 	
 	
     t2=clock();

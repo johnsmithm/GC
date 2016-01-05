@@ -1,0 +1,14 @@
+#!/bin/bash -l
+#PBS -N TestJob
+#PBS -l nodes=4:ppn=32
+#PBS -q siwir
+#PBS -l walltime=0:05:00
+#PBS -M moshnoi2000@gmail.com -m abe
+#PBS -o $PBS_JOBNAME.out -e $PBS_JOBNAME.err
+. /etc/profile.d/modules.sh
+module load openmpi/1.6.5-ib
+module load gcc/4.9.2
+cd <PathToBinaryDir>
+make clean
+make
+mpirun -np 4 ./cg 30 30 961 0.0000001

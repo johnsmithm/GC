@@ -1,7 +1,6 @@
 #include<math.h>
 #include<iostream>
 #include<fstream>
-#include<stdlib.h>
 
 class CG{
     public:
@@ -20,23 +19,23 @@ class CG{
         ~CG(){}   
     private:
 
-	void matrix_multiplication(double m1[],double m2[]){
+	void matrix_multiplication(double r[],double u[]){
 	  for(int i=1;i<ny_-1;++i)
                 for(int j=1;j<nx_-1;++j)
-                    m1[i*nx_+j] = mst*m2[i*nx_+j] - xst*(m2[i*nx_+j+1]+m2[i*nx_+j-1])-yst*(m2[j+(i+1)*nx_]+m2[j+(i-1)*nx_]);   
+                    r[i*nx_+j] = mst*u[i*nx_+j] - xst*(u[i*nx_+j+1]+u[i*nx_+j-1])-yst*(u[j+(i+1)*nx_]+u[j+(i-1)*nx_]);   
 	}
 	
 
-	void vector_addition(double m[],double a[],double b[],double scalar){
+	void vector_addition(double r[],double a[],double b[],double scalar){
 	    for(int i=1;i<ny_-1;++i)
                 for(int j=1;j<nx_-1;++j)
-			           m[i*nx_+j]=a[i*nx_+j]+b[i*nx_+j]*scalar;
+			           r[i*nx_+j]=a[i*nx_+j]+b[i*nx_+j]*scalar;
 	}
 	
-	void vector_subtraction(double m[],double a[],double b[],double scalar){
+	void vector_subtraction(double r[],double a[],double b[],double scalar){
 	    for(int i=1;i<ny_-1;++i)
                 for(int j=1;j<nx_-1;++j)
-			          m[i*nx_+j]=a[i*nx_+j]-b[i*nx_+j]*scalar;
+			          r[i*nx_+j]=a[i*nx_+j]-b[i*nx_+j]*scalar;
 	}
 	
 	double LNorm(double a[],double b[]){
@@ -132,7 +131,7 @@ class CG{
 
     private:
             //we make nx_ even
-            //bool even;
+            bool even;
             //optimize implemantation: red point, black points
             double * u ,*f , *r, *z, *d, beta,alfa, delta0, delta1,eps_;
             //delta x, delta y, left and right points stencil, top and bottom point stencil, middle point stencil

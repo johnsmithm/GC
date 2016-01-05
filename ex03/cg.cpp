@@ -5,6 +5,7 @@
 
 #include <mpi.h>
 
+#include <mpi.h>
 #include"Vector.h"  //Expr_CG function
 //#include "cg_naive.h" //CG class
 
@@ -19,7 +20,9 @@ extern "C" {
 using namespace std;
 
 
-int main(int argc, char *argv[]){
+int main(int argc, char *argv[]){ 
+    
+    (void) argc; //to suppress Warnings about unused argc
     int size(0); 
     int rank(0);
 	
@@ -27,9 +30,7 @@ int main(int argc, char *argv[]){
 	
 	MPI_Comm_size( MPI_COMM_WORLD, &size );
     MPI_Comm_rank( MPI_COMM_WORLD, &rank );
-    
-    
-    (void) argc; //to suppress Warnings about unused argc
+	
     assert(argc>3);
     int nx   = atoi(argv[1]);
     int ny   = atoi(argv[2]);
@@ -47,6 +48,7 @@ int main(int argc, char *argv[]){
 	
 	//using template expretions
     double r = Expr_CG(nx,ny,c,eps,rank,size);
+
     
     double time = timer.elapsed();
 
@@ -54,7 +56,7 @@ int main(int argc, char *argv[]){
    likwid_markerStopRegion( "CG" );
    likwid_markerClose();
 #endif
-
+    
    //fast.print_gnuplot();
     if(rank==0){
        cout<<"time:"<<time<<'\n';

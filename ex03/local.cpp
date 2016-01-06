@@ -9,8 +9,8 @@
 #include <cstdio>
 #include <unistd.h>
 
-#include"Vector.h"  //Expr_CG function
-//#include "cg_naive.h" //CG class
+#include"Expr.h"  //Expr_CG function
+#include "cg_naive.h" //CG class
 
 using namespace std;
 
@@ -45,11 +45,11 @@ int main(int argc, char *argv[]){
     t1=clock();
     
 	//using simple function operation on vectors
-    //CG fast(nx,ny,c,eps);
+   // CG fast(nx,ny,c,eps);
     //double  r = fast.solve_naive();
 	
 	//using template expretions
-    double r = Expr_CG(nx,ny,c,eps,rank,size);
+   double r = Expr_CG(nx,ny,c,eps,rank,size);
 	
 	
     t2=clock();

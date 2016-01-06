@@ -1,5 +1,5 @@
 #!/bin/bash -l
-#PBS -N TestJob
+#PBS -N MyJob
 #PBS -l nodes=4:ppn=32
 #PBS -q siwir
 #PBS -l walltime=0:05:00
@@ -8,7 +8,7 @@
 . /etc/profile.d/modules.sh
 module load openmpi/1.6.5-ib
 module load gcc/4.9.2
-cd <PathToBinaryDir>
+cd ~/git/SSC/GC/ex03
 make clean
 make
-mpirun -np 4 ./cg 30 30 961 0.0000001
+mpirun -np 32 ./cg 10000 10000 100 -1

@@ -81,6 +81,7 @@ public :
 			for(int i=0;i<n;++i){
 			data[i] = a[i];
 			}
+         std::cout<<"-";
 	}
 	void operator = ( Vector&& a){//move constructor
 		   // std::cout<<"-";
@@ -93,15 +94,20 @@ public :
 	
 	double operator^(const Vector & a)const{
 		double l = 0;		
-		for(int i=0;i<n;++i)l+=data[i]*a.data[i];
+		//for(int i=0;i<n;++i)l+=data[i]*a.data[i];
+        for(int i=1;i<ny-1;++i)
+            for(int j=1;j<nx-1;++j)
+                l+=data[i*nx+j]*a.data[i*nx+j];
 		return l;
 	}
 	//end vector operation
 	//brgin vector members
 	double LNorm(){
 		double l = 0;		
-		for(int i=0;i<n;++i)l+=data[i]*data[i];
-		return l;
+		 for(int i=1;i<ny-1;++i)
+            for(int j=1;j<nx-1;++j)
+             l+=data[i*nx+j]*data[i*nx+j];
+		return (l/((ny-2)*(nx-2)));
 	}	
     size_t size()const{return n;}
 	size_t nx_()const{return nx;}
@@ -137,9 +143,9 @@ std::ostream & operator&( std::ostream & os, const Vector & v )
 		{
 			for( size_t j=0; j < v.nx_(); ++j )
 			{
-				os<<i<<' '<<j<<' ' << v[i*v.nx_()+j] << "\n";        
+				os<<(j*(2./(v.nx_()-1)))<<' '<<(i*(1./(v.ny_()-1)))<<' '<< v[i*v.nx_()+j] << "\n";        
 			}  
-		    //os<<"\n";
+		    os<<"\n";
 		}
 	}else
     for( size_t i=0; i < v.size(); ++i )
@@ -274,24 +280,28 @@ double Expr_CG(int nx,int ny,int c,double eps, int rank, int nrpr){
 	Stencil A(nx,ny);
 	double delta0 = 0, delta1 = 0, beta = 0,alfa=0;
 	//initialization
-	
+	int iteration = 0;
 	//CG
 	r = f - A*u;
 	//std::cout<<(A*u);//u<<(A*u);
-	delta0 = r.LNorm();
+	delta0 = r^r;
 	d = r;
 	if(sqrt(delta0)>eps)
 	  for(int i=0;i<c;++i){
+        ++iteration;
 		  z = A*d;		  
 		  alfa = delta0 / (d^z);
 		  u = u + d*alfa;
 		  r = r - z*alfa;
-		  delta1 = r.LNorm();
+		  delta1 = r^r;
 		  beta = delta1/delta0;
 		  delta0=delta1;
 		  if(sqrt(delta1)<eps)break;		  
 		  d = r + d*beta;		  
 	  }
+    std::cout<<iteration<<"\n";
+    //r = f - A*u;
+    delta0 = r.LNorm();
 	//std::cout<<u;
 	std::ofstream out("solution.txt");
 	out&u;

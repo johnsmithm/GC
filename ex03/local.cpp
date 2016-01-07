@@ -4,7 +4,7 @@
 #include <time.h>
 #include <stdlib.h> 
 #include <string>
-#include <mpi.h>
+//#include <mpi.h>
 
 #include <cstdio>
 #include <unistd.h>
@@ -21,10 +21,10 @@ int main(int argc, char *argv[]){
 	int size(0); 
     int rank(0);
 	
-	MPI_Init( &argc, &argv );
+	//MPI_Init( &argc, &argv );
 	
-	MPI_Comm_size( MPI_COMM_WORLD, &size );
-    MPI_Comm_rank( MPI_COMM_WORLD, &rank );
+	//MPI_Comm_size( MPI_COMM_WORLD, &size );
+    //MPI_Comm_rank( MPI_COMM_WORLD, &rank );
     /*
     int i = 0;
     char hostname[256];
@@ -34,11 +34,11 @@ int main(int argc, char *argv[]){
     while (0 == i)
         sleep(5);*/
 	
-    assert(argc>3);
-    int nx = atoi(argv[1]);
-    int ny = atoi(argv[2]);
-    int c  = atoi(argv[3]);	
-    double eps  = stod(argv[4]);
+    //assert(argc>3);
+    int nx = 33;//atoi(argv[1]);
+    int ny = 33;//atoi(argv[2]);
+    int c  = 12;//atoi(argv[3]);	
+    double eps  = -1;// stod(argv[4]);
     //cout<<eps<<" "<<ny<<" "<<c<<endl;
 
     clock_t t1,t2;
@@ -63,5 +63,5 @@ int main(int argc, char *argv[]){
     cout<<"R:"<<r<<'\n';
 	}
 
-    MPI_Finalize();
+    //MPI_Finalize();
 }

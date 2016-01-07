@@ -721,7 +721,7 @@ double Expr_CG(int nx,int ny,int c,double eps, int rank, int nrpr){
 	
 	//CG
 	r = f - A * u;
-	delta0 = r.LNorm();
+	delta0 = r^r;
 	d = r;
 	if(delta0 > eps2 || eps <= 0){
 	  for(int i = 0 ;i < c; ++i){
@@ -731,7 +731,7 @@ double Expr_CG(int nx,int ny,int c,double eps, int rank, int nrpr){
 		  alfa = delta0 / scalar;
 		  u = u + d * alfa;
 		  r = r - z * alfa;
-		  delta1 = r.LNorm();
+		  delta1 = r^r;
 		  beta = delta1 / delta0;
 		  delta0 = delta1;
 		  if(delta1 < eps2 && eps > 0)break;		  
@@ -799,6 +799,6 @@ double Expr_CG(int nx,int ny,int c,double eps, int rank, int nrpr){
         std::cout<<"No file writing.\n";
       }
     }
-	
+	delta0 = r.LNorm() / (nx*ny);
 	return sqrt(delta0);	
 }

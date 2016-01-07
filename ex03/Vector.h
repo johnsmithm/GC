@@ -70,19 +70,17 @@ public :
     * nys - Total Number  grid points on y axe.
     * x - Coordonate of fist inner point(even at order)
     * y - Coordonate of fist inner point(even at order)
-    * offsetx - Coordonate of the left-top point in the original grid.
-    * offsety - Coordonate of the left-top point in the original grid.
     * lambda - 4π^2 sin(2πx) sinh(2πy).
     */
 	 Vector(int n_,int nx_,int ny_,int nxi_,int nyi_,int nxs_,int nys_,int x_,int y_,
-			size_t offsetx1,size_t offsety1,std::function<double(size_t,size_t)> f) //f
+			std::function<double(size_t,size_t)> f) //f
 		 :n(n_),x(x_),y(y_),nx(nx_),ny(ny_),nxs(nxs_),nys(nys_),nxi(nxi_),nyi(nyi_)
 	{	
 	  data = new double[n];	 
 	  for(size_t i=0;i<n;++i)data[i]=0;		 
 	  for(size_t i=0;i<ny;++i)
 		      for(size_t j=0;j<nx;++j)
-			    data[j+x+nxs*(i+y)] = f(j+offsetx1,i+offsety1);
+			    data[j+x+nxs*(i+y)] = f(j,i);
 	  commit_datatypes();	  
 	}
 	
@@ -98,10 +96,9 @@ public :
     * nys - Total Number  grid points on y axe.
     * x - Coordonate of fist inner point(even at order)
     * y - Coordonate of fist inner point(even at order)
-    * offsetx - Coordonate of the left-top point in the original grid.
     * lambda - sin(2πx) sinh(2πy).
     */
-	    Vector(int n_,int nx_,int ny_,int nxi_,int nyi_,int nxs_,int nys_,int x_,int y_,size_t offsetx1, std::function<double(size_t)> f)//u
+	    Vector(int n_,int nx_,int ny_,int nxi_,int nyi_,int nxs_,int nys_,int x_,int y_, std::function<double(size_t)> f)//u
 			:n(n_),x(x_),y(y_),nx(nx_),ny(ny_),nxs(nxs_),nys(nys_),nxi(nxi_),nyi(nyi_)
 	{   	
 	      data = new double[n];	
@@ -110,7 +107,7 @@ public :
           }
 				
 	      for(size_t i = 0;i < nx; ++i){
-			  data[nxs * (nys - 1) + x + i] = f(i + offsetx1);
+			  data[nxs * (nys - 1) + x + i] = f(i);
           }
 		  commit_datatypes();
 	}
@@ -186,7 +183,7 @@ public :
 		for(size_t i=0;i<nyi;++i)
 			for(size_t j=0;j<nxi;++j)			
 			      l+=data[(1+i)*nxs+j+1]*a.data[(1+i)*nxs+j+1];
-		double l1;		
+		double l1=0;		
         //           sent rec.  #el   type      operation
 	    MPI_Allreduce( &l, &l1 ,1 , MPI_DOUBLE ,MPI_SUM, cartcomm );
 		return l1;
@@ -528,13 +525,15 @@ Vector * get_vector(int rank,int nx,int ny,int px = 2,int py = 2){
 		if(coords[0]==0 || coords[0]==py-1){//if we are last or first row
 			if(coords[0]==py-1)
 				ny_ += (ny+1)%py; // add the remaining rows
-			nys = ny_+1; // we have just one layer because we are at bondary
+            if(py != 1)
+			    nys = ny_+1; // we have just one layer because we are at bondary
 		}else nys +=2; //add the layers
 
 		if(coords[1]==0 || coords[1]==px-1){//if we are last or first column
 			if(coords[1]==px-1)
 				nx_ += (nx+1)%px; // add the remaining columns
-			nxs = nx_+1; // we have just one layer because we are at bondary
+            if(px != 1)
+			    nxs = nx_+1; // we have just one layer because we are at bondary
 		}else nxs +=2; //add the layers
 
 
@@ -551,10 +550,12 @@ Vector * get_vector(int rank,int nx,int ny,int px = 2,int py = 2){
 
 		nxi = nx_;nyi = ny_;
 		if(coords[0]==0 || coords[0]==py-1){//first row or last row
-			--nyi; // we are at the boundary		
+			--nyi; // we are at the boundary	
+            if(py == 1)--nyi;
 		}
 		if(coords[1]==0 || coords[1]==px-1){//first column
 			--nxi; // we are at the boundary
+            if(px == 1) --nxi;
 		}
     //number of grid points
         int pg = nxs*nys;
@@ -604,10 +605,10 @@ int getHeight(int size){
 */
 double Expr_CG(int nx,int ny,int c,double eps, int rank, int nrpr){
 	//MPI topology      
-	  int px = getHeight(nrpr);
-      int py = nrpr/px;
+	  int py = getHeight(nrpr);
+      int px = nrpr/py;
       if(rank == 0){
-        std::cout<<"Height="<<px<<", Width="<<py<<";\n";
+        std::cout<<"Height="<<py<<", Width="<<px<<";\n";
       }
 	  int dims[2] = {px,py};
 	  int periods[2] = {0,0}; // not periodic!
@@ -644,33 +645,42 @@ double Expr_CG(int nx,int ny,int c,double eps, int rank, int nrpr){
 	if(coords[0]==0 || coords[0]==py-1){//if we are last or first row
 	    if(coords[0]==py-1)
 			ny_ += (ny+1)%py; // add the remaining rows
-		nys = ny_+1;
+		if(py-1 != 0){//if  height of our cart is not 1
+            nys = ny_+1;
+        }
 	}else nys +=2; //add the layers
 	
 	if(coords[1]==0 || coords[1]==px-1){//if we are last or first column
 	    if(coords[1]==px-1)
 			nx_ += (nx+1)%px; // add the remaining columns
-		nxs = nx_+1;
+        if(px != 1)// if width of our cart is not 1 
+		   nxs = nx_+1;
 	}else nxs +=2; //add the layers
 	
-	
+	//first point that are initiated in f matrix
 	if(coords[0]==0 && coords[1]==0){//first point
-	    x=0;y=0;		
+	    x = 0;
+        y = 0;		
 	}else if(coords[0]==0){//first column
 	   x=1;y=0;
 	}else if(coords[1]==0)//first row
 	{
-	x=0; y=1;
+	   x = 0;
+       y = 1;
 	}else{
-		x=1;y=1;
+		x = 1;
+        y = 1;
 	}//others
 	
+    //points that are updated
 	nxi = nx_;nyi = ny_;
 	if(coords[0]==0 || coords[0]==py-1){//first row or last row
-	    --nyi;		
+	    --nyi;	
+        if(py == 1)--nyi;
 	}
 	if(coords[1]==0 || coords[1]==px-1){//first column
 	    --nxi;
+        if(px == 1)--nxi;
 	}
 	
 	
@@ -693,14 +703,14 @@ double Expr_CG(int nx,int ny,int c,double eps, int rank, int nrpr){
     /*
     * For the processes from the border top and left we initiate base on the fist inner point.
     */
-	Vector f(pg, nx_, ny_, nxi, nyi, nxs, nys , x, y, offsetx, offsety,
-			 [C,freqx,freqy](int x1,int y1)->double{return C*sin(freqx*x1)*sinh(freqy*y1);});	//4π^2 sin(2πx) sinh(2πy)
+	Vector f(pg, nx_, ny_, nxi, nyi, nxs, nys , x, y,
+			 [C,freqx,freqy,offsetx,offsety](int x1,int y1)->double{return C*sin(freqx*(x1+offsetx))*sinh(freqy*(y1+offsety));});	//4π^2 sin(2πx) sinh(2πy)
     
     double SINH = sinh(2*pi); 	
 	//sin(2πx) sinh(2πy)
 	Vector *ut;
 	if(coords[0]==py-1){//we are at border's block that are not 0
-	     ut= new Vector(pg,nx_,ny_,nxi,nyi,nxs,nys,x,y,offsetx, [SINH,freqx](int x1)->double{return sin(x1*freqx) * SINH;});
+	     ut= new Vector(pg,nx_,ny_,nxi,nyi,nxs,nys,x,y, [SINH,freqx,offsetx](int x1)->double{return sin((x1+offsetx)*freqx) * SINH;});
     }
 	else{
         //set vector with 0.
@@ -723,7 +733,7 @@ double Expr_CG(int nx,int ny,int c,double eps, int rank, int nrpr){
 	r = f - A * u;
 	delta0 = r^r;
 	d = r;
-	if(delta0 > eps2 || eps <= 0){
+	if((delta0 / ((nx-1)*(ny-1)))  > eps2 || eps <= 0){
 	  for(int i = 0 ;i < c; ++i){
           ++nrIteration;
 		  z = A*d;		  
@@ -734,33 +744,14 @@ double Expr_CG(int nx,int ny,int c,double eps, int rank, int nrpr){
 		  delta1 = r^r;
 		  beta = delta1 / delta0;
 		  delta0 = delta1;
-		  if(delta1 < eps2 && eps > 0)break;		  
+		  if((delta1 / ((nx-1)*(ny-1))) < eps2 && eps > 0)break;		  
 		  d = r + d * beta;		  
 	  }
     }
     if(rank == 0){
        std::cout<<"Number of iteration:"<<nrIteration<<";\n";
     }
-	
-		/*for( int i = 0; i < px*py; ++i )
-      {
-         if( cartrank == i )
-         {
-
-            std::cout<<u << "------------------------------------------------------------\n"
-			          << "rank (Cartesian topology):         " << cartrank << "\n"
-                      << "Cartesian coordinates:             ( " << coords[0] << ", " << coords[1] << " )\n" 
-		              << "neighbors (x-direction, expected): " << nbrs[LEFT] << " (left), " << nbrs[RIGHT] << " (right)\n"
-                      << "neighbors (y-direction, expected): " << nbrs[DOWN] << " (down), " << nbrs[UP] << " (up)\n"   
-				      << "nx="<<nx_<<" ny="<<ny_<<"\n"
-				      << "nxs="<<nxs<<" nys="<<nys<<"\n"
-				      << "nxi="<<nxi<<" nyi="<<nyi<<"\n"					      
-				      << "x="<<x<<" y="<<y<<"\n"
-                      << std::endl;
-         }
-         MPI_Barrier( MPI_COMM_WORLD );
-      }*/
-	
+    
 	//print
 	std::ofstream out("solution.txt");
     if(out.is_open() && nx != 10000 && nx != 10000) {
@@ -799,6 +790,6 @@ double Expr_CG(int nx,int ny,int c,double eps, int rank, int nrpr){
         std::cout<<"No file writing.\n";
       }
     }
-	delta0 = r.LNorm() / (nx*ny);
+	delta0 = r.LNorm() / ((nx-1)*(ny-1));
 	return sqrt(delta0);	
 }

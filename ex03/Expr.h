@@ -48,7 +48,7 @@ public :
 	      ny = n/nx;	
 	      data = new double[n];	
 	      for(int i=0;i<n;++i)data[i]=0;
-	      for(size_t i=beg;i<end;++i)data[i] = f(i);
+	      for(size_t i=beg;i<end;++i)data[i] = f(i-beg);
 	}//end Vector Constructors
     Vector(Vector&& o) noexcept : data(std::move(o.data)) {std::cout<<'|';}
 	~Vector(){delete [] data;}
@@ -282,6 +282,7 @@ double Expr_CG(int nx,int ny,int c,double eps, int rank, int nrpr){
 	//initialization
 	int iteration = 0;
 	//CG
+    z = A * u;
 	r = f - A*u;
 	//std::cout<<(A*u);//u<<(A*u);
 	delta0 = r^r;

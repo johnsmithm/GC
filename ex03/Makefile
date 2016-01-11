@@ -1,6 +1,6 @@
 CXX = mpic++
 CXXFLAGS = -std=c++11
-CXXFLAGSP = -Wall -Wextra -Wshadow -Werror -fopenmp -DNDEBUG  -ffast-math -march=native
+CXXFLAGSP = -std=c++11 -Wall -Wextra -Wshadow -O3 -DNDEBUG  -ffast-math -march=native
 CXXFLAGSVECTO = -ftree-vectorizer-verbose=1
 
 TARGET =cg

@@ -744,7 +744,7 @@ double Expr_CG(int nx,int ny,int c,double eps, int rank, int nrpr){
 		  delta1 = r^r;
 		  beta = delta1 / delta0;
 		  delta0 = delta1;
-		  if((delta1 / ((nx-1)*(ny-1))) < eps2 && eps > 0)break;		  
+		  if(eps > 0 && (delta1 / ((nx-1)*(ny-1))) < eps2)break;		  
 		  d = r + d * beta;		  
 	  }
     }

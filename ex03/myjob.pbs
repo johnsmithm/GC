@@ -6,7 +6,7 @@
 #PBS -M moshnoi2000@gmail.com -m abe
 #PBS -o $PBS_JOBNAME.out -e $PBS_JOBNAME.err
 . /etc/profile.d/modules.sh
-module load openmpi/1.6.5-ib
+module load openmpi/1.8.1-ib
 module load gcc/4.9.2
 cd ~/git/SSC/GC/ex03
 make clean
